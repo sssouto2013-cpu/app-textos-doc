@@ -19,7 +19,7 @@
     --accent: #3498db;
     --accent-hover: #2980b9;
     --border: #d0d7e2;
-    --highlight: yellow;
+    --highlight: #fff8b3; /* amarelo suave */
     --shadow: 0 4px 10px #0002;
   }
 
@@ -30,7 +30,7 @@
     --accent: #5dade2;
     --accent-hover: #3498db;
     --border: #444;
-    --highlight: #ffeb3b;
+    --highlight: #fff2a8; /* amarelo suave no modo escuro */
     --shadow: 0 4px 12px #0005;
   }
 
@@ -40,7 +40,6 @@
     padding: 20px;
     background: var(--bg);
     color: var(--text);
-    transition: background 0.3s, color 0.3s;
   }
 
   h1 {
@@ -88,7 +87,8 @@
 
   .highlight {
     background: var(--highlight);
-    font-weight: bold;
+    padding: 2px 3px;
+    border-radius: 4px;
   }
 
   .text-block {
@@ -124,11 +124,7 @@
 <div class="panel">
   <h2><span class="material-icons">folder_open</span> Pasta de trabalho</h2>
 
-  <p>Escolha a pasta onde estão:</p>
-  <ul>
-    <li>um arquivo <strong>.txt</strong> ou <strong>.doc/.docx</strong> com palavras‑chave</li>
-    <li>arquivos <strong>.pdf</strong>, <strong>.doc</strong> ou <strong>.docx</strong> onde será feita a busca</li>
-  </ul>
+  <p>Escolha a pasta onde estão seus arquivos.</p>
 
   <p style="font-size:14px; color:#555;">
     No Android, selecione a pasta sincronizada pelo FolderSync (ex.: <em>/storage/emulated/0/FolderSync/OneDrive/...</em>).
@@ -140,13 +136,13 @@
 </div>
 
 <div class="panel">
-  <h2><span class="material-icons">description</span> Palavras‑chave</h2>
+  <h2><span class="material-icons">description</span> Arquivo de palavras‑chave (TXT)</h2>
 
   <button id="loadKeywordsBtn">
-    <span class="material-icons">text_snippet</span> Carregar arquivo de palavras‑chave
+    <span class="material-icons">text_snippet</span> Selecionar arquivo TXT
   </button>
 
-  <p id="keywordsInfo">Nenhum arquivo carregado.</p>
+  <p id="keywordsInfo">Nenhum arquivo TXT carregado.</p>
 
   <h3>Palavras‑chave carregadas</h3>
   <div id="keywordsList" class="list"></div>
@@ -155,12 +151,12 @@
 <div class="panel">
   <h2><span class="material-icons">picture_as_pdf</span> Arquivos para busca</h2>
 
-  <button id="loadPdfsBtn">
-    <span class="material-icons">download</span> Carregar arquivos da pasta
+  <button id="loadFilesBtn">
+    <span class="material-icons">download</span> Selecionar arquivos (TXT, PDF, DOC, DOCX)
   </button>
 
-  <h3>Escolher arquivos</h3>
-  <div id="pdfsSelectList" class="list"></div>
+  <h3>Arquivos selecionados</h3>
+  <div id="filesSelectList" class="list"></div>
 </div>
 
 <div class="panel">
@@ -177,13 +173,6 @@
   <div id="results" class="results"></div>
 </div>
 
-<!-- PDF.js -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"></script>
-
-<!-- Tesseract.js (OCR) -->
-<script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js"></script>
-
 <script>
 let folderHandle = null;
 let keywords = [];
@@ -197,11 +186,11 @@ pdfjsLib.GlobalWorkerOptions.workerSrc =
 
 const chooseFolderBtn = document.getElementById("chooseFolderBtn");
 const loadKeywordsBtn = document.getElementById("loadKeywordsBtn");
-const loadPdfsBtn = document.getElementById("loadPdfsBtn");
+const loadFilesBtn = document.getElementById("loadFilesBtn");
 
 const keywordsInfoEl = document.getElementById("keywordsInfo");
 const keywordsListEl = document.getElementById("keywordsList");
-const pdfsSelectListEl = document.getElementById("pdfsSelectList");
+const filesSelectListEl = document.getElementById("filesSelectList");
 
 const startTestBtn = document.getElementById("startTestBtn");
 const showOccurrencesBtn = document.getElementById("showOccurrencesBtn");
@@ -230,7 +219,7 @@ chooseFolderBtn.onclick = async () => {
   }
 };
 
-/* CARREGAR PALAVRAS-CHAVE (TXT, DOC, DOCX) */
+/* SELECIONAR TXT DE PALAVRAS-CHAVE */
 loadKeywordsBtn.onclick = async () => {
   if (!folderHandle) {
     alert("Escolha a pasta primeiro.");
@@ -243,35 +232,17 @@ loadKeywordsBtn.onclick = async () => {
     return;
   }
 
-  let fileHandle = null;
+  const picker = await folderHandle.showPicker({
+    multiple: false,
+    types: [{
+      description: "Arquivo TXT",
+      accept: { "text/plain": [".txt"] }
+    }]
+  });
 
-  for await (const entry of folderHandle.values()) {
-    const name = entry.name.toLowerCase();
-    if (entry.kind === "file" &&
-        (name.endsWith(".txt") || name.endsWith(".doc") || name.endsWith(".docx"))) {
-      fileHandle = entry;
-      break;
-    }
-  }
-
-  if (!fileHandle) {
-    alert("Nenhum arquivo TXT/DOC/DOCX encontrado.");
-    return;
-  }
-
+  const fileHandle = picker[0];
   const file = await fileHandle.getFile();
-  const name = file.name.toLowerCase();
-  let raw = "";
-
-  if (name.endsWith(".txt")) {
-    raw = await file.text();
-  } else if (name.endsWith(".docx")) {
-    const arrayBuffer = await file.arrayBuffer();
-    const result = await mammoth.extractRawText({ arrayBuffer });
-    raw = result.value;
-  } else if (name.endsWith(".doc")) {
-    raw = await file.text();
-  }
+  const raw = await file.text();
 
   keywords = raw
     .split("\n")
@@ -289,7 +260,7 @@ loadKeywordsBtn.onclick = async () => {
   usedKeywords = [];
 
   keywordsInfoEl.textContent =
-    `Arquivo: ${file.name} — ${keywords.length} termos carregados.`;
+    `Arquivo TXT carregado: ${file.name} — ${keywords.length} termos.`;
 
   renderKeywords();
 };
@@ -305,8 +276,8 @@ function renderKeywords() {
   });
 }
 
-/* CARREGAR ARQUIVOS (PDF, DOC, DOCX) */
-loadPdfsBtn.onclick = async () => {
+/* SELECIONAR ARQUIVOS PARA BUSCA */
+loadFilesBtn.onclick = async () => {
   if (!folderHandle) {
     alert("Escolha a pasta primeiro.");
     return;
@@ -318,14 +289,27 @@ loadPdfsBtn.onclick = async () => {
     return;
   }
 
+  const picker = await folderHandle.showPicker({
+    multiple: true,
+    types: [{
+      description: "Arquivos suportados",
+      accept: {
+        "application/pdf": [".pdf"],
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document": [".docx"],
+        "application/msword": [".doc"],
+        "text/plain": [".txt"]
+      }
+    }]
+  });
+
   filesList = [];
 
-  for await (const entry of folderHandle.values()) {
-    const name = entry.name.toLowerCase();
-    if (entry.kind === "file" &&
-        (name.endsWith(".pdf") || name.endsWith(".doc") || name.endsWith(".docx"))) {
-      filesList.push({ name: entry.name, handle: entry, text: null });
-    }
+  for (const handle of picker) {
+    filesList.push({
+      name: handle.name,
+      handle,
+      text: null
+    });
   }
 
   renderFilesList();
@@ -333,7 +317,7 @@ loadPdfsBtn.onclick = async () => {
 
 /* LISTAR ARQUIVOS */
 function renderFilesList() {
-  pdfsSelectListEl.innerHTML = "";
+  filesSelectListEl.innerHTML = "";
 
   filesList.forEach((file, index) => {
     const label = document.createElement("label");
@@ -342,7 +326,7 @@ function renderFilesList() {
     chk.value = index;
     label.appendChild(chk);
     label.appendChild(document.createTextNode(" " + file.name));
-    pdfsSelectListEl.appendChild(label);
+    filesSelectListEl.appendChild(label);
   });
 }
 
@@ -427,6 +411,8 @@ async function extrairTextoDeArquivo(obj) {
     textoFinal = await extrairTextoDocx(file);
   } else if (name.endsWith(".doc")) {
     textoFinal = await extrairTextoDoc(file);
+  } else if (name.endsWith(".txt")) {
+    textoFinal = await file.text();
   }
 
   obj.text = textoFinal;
@@ -436,7 +422,7 @@ async function extrairTextoDeArquivo(obj) {
 /* SORTEAR TERMO */
 startTestBtn.onclick = () => {
   const selectedIds = Array.from(
-    pdfsSelectListEl.querySelectorAll("input[type='checkbox']:checked")
+    filesSelectListEl.querySelectorAll("input[type='checkbox']:checked")
   ).map(cb => Number(cb.value));
 
   if (selectedIds.length === 0) {
@@ -516,10 +502,8 @@ showOccurrencesBtn.onclick = async () => {
     return;
   }
 
-  const termo = currentTest.keyword
-
-  resultsEl.innerHTML = "<p>Processando arquivos...</p>";
-
+  const termo = currentTest.keyword;
+  resultsEl.innerHTML = "<p>Processando arquivos...</
   let totalEncontrados = 0;
   resultsEl.innerHTML = "";
 
@@ -568,7 +552,7 @@ endTestBtn.onclick = () => {
   resultsEl.innerHTML = "<p>Teste encerrado.</p>";
   testInfoEl.innerHTML = "";
 
-  pdfsSelectListEl.querySelectorAll("input[type='checkbox']").forEach(cb => {
+  filesSelectListEl.querySelectorAll("input[type='checkbox']").forEach(cb => {
     cb.checked = false;
   });
 };
@@ -581,4 +565,3 @@ filesList = [];
 
 </body>
 </html>
-
