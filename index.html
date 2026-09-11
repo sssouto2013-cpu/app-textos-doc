@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<title>Busca em PDFs, DOC, DOCX e TXT</title>
+<title>Busca de Palavras em Arquivos</title>
 
 <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
 
@@ -115,11 +115,15 @@
 </head>
 
 <body>
-<h1>Busca de Palavras em PDFs, DOC, DOCX e TXT</h1>
+<h1>Busca de Palavras em Arquivos</h1>
 
 <button id="themeToggle">
   <span class="material-icons">dark_mode</span>
 </button>
+
+<!-- Inputs invisíveis -->
+<input type="file" id="keywordPicker" accept=".txt" style="display:none">
+<input type="file" id="filesPicker" multiple accept=".txt,.pdf,.doc,.docx" style="display:none">
 
 <div class="panel">
   <h2><span class="material-icons">folder_open</span> Pasta de trabalho</h2>
@@ -195,6 +199,9 @@ const chooseFolderBtn = document.getElementById("chooseFolderBtn");
 const loadKeywordsBtn = document.getElementById("loadKeywordsBtn");
 const loadFilesBtn = document.getElementById("loadFilesBtn");
 
+const keywordPicker = document.getElementById("keywordPicker");
+const filesPicker = document.getElementById("filesPicker");
+
 const keywordsInfoEl = document.getElementById("keywordsInfo");
 const keywordsListEl = document.getElementById("keywordsList");
 const filesSelectListEl = document.getElementById("filesSelectList");
@@ -226,29 +233,14 @@ chooseFolderBtn.onclick = async () => {
   }
 };
 
-/* SELECIONAR TXT DE PALAVRAS-CHAVE */
-loadKeywordsBtn.onclick = async () => {
-  if (!folderHandle) {
-    alert("Escolha a pasta primeiro.");
-    return;
-  }
+/* BOTÃO → abre input invisível */
+loadKeywordsBtn.onclick = () => keywordPicker.click();
 
-  const perm = await folderHandle.requestPermission({ mode: "read" });
-  if (perm !== "granted") {
-    alert("Permissão negada.");
-    return;
-  }
+/* PROCESSAR TXT */
+keywordPicker.onchange = async (ev) => {
+  const file = ev.target.files[0];
+  if (!file) return;
 
-  const picker = await folderHandle.showPicker({
-    multiple: false,
-    types: [{
-      description: "Arquivo TXT",
-      accept: { "text/plain": [".txt"] }
-    }]
-  });
-
-  const fileHandle = picker[0];
-  const file = await fileHandle.getFile();
   const raw = await file.text();
 
   keywords = raw
@@ -283,41 +275,17 @@ function renderKeywords() {
   });
 }
 
-/* SELECIONAR ARQUIVOS PARA BUSCA */
-loadFilesBtn.onclick = async () => {
-  if (!folderHandle) {
-    alert("Escolha a pasta primeiro.");
-    return;
-  }
+/* BOTÃO → abre input invisível */
+loadFilesBtn.onclick = () => filesPicker.click();
 
-  const perm = await folderHandle.requestPermission({ mode: "read" });
-  if (perm !== "granted") {
-    alert("Permissão negada.");
-    return;
-  }
-
-  const picker = await folderHandle.showPicker({
-    multiple: true,
-    types: [{
-      description: "Arquivos suportados",
-      accept: {
-        "application/pdf": [".pdf"],
-        "application/vnd.openxmlformats-officedocument.wordprocessingml.document": [".docx"],
-        "application/msword": [".doc"],
-        "text/plain": [".txt"]
-      }
-    }]
-  });
-
-  filesList = [];
-
-  for (const handle of picker) {
-    filesList.push({
-      name: handle.name,
-      handle,
-      text: null
-    });
-  }
+/* PROCESSAR ARQUIVOS SELECIONADOS */
+filesPicker.onchange = async (ev) => {
+  const selected = Array.from(ev.target.files);
+  filesList = selected.map(f => ({
+    name: f.name,
+    handle: f,
+    text: null
+  }));
 
   renderFilesList();
 };
@@ -407,7 +375,7 @@ async function extrairTextoDoc(file) {
 async function extrairTextoDeArquivo(obj) {
   if (obj.text !== null) return obj.text;
 
-  const file = await obj.handle.getFile();
+  const file = obj.handle;
   const name = file.name.toLowerCase();
 
   let textoFinal = "";
@@ -510,7 +478,7 @@ showOccurrencesBtn.onclick = async () => {
   }
 
   const termo = currentTest.keyword;
-  resultsEl.innerHTML = "<p>Processando arquivos...</
+  resultsEl.innerHTML = "<p>Processando arquivos...</p>";
 
   let totalEncontrados = 0;
   resultsEl.innerHTML = "";
@@ -541,6 +509,18 @@ showOccurrencesBtn.onclick = async () => {
       resultsEl.appendChild(bloco);
     }
   }
+
+  if (totalEncontrados === 0) {
+    resultsEl.innerHTML =
+      `<p>Nenhum trecho contém o termo <strong>${termo}</strong>.</p>`;
+  }
+};
+
+/* ENCERRAR TESTE */
+endTestBtn.onclick = () => {
+  currentTest.active = false;
+  currentTest.keyword = "";
+  currentTest
 
   if (totalEncontrados === 0) {
     resultsEl.innerHTML =
