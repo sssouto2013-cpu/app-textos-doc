@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Busca em PDFs, DOC, DOCX e TXT</title>
+
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+
+<!-- Mammoth.js para DOCX -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.4.17/mammoth.browser.min.js"></script>
+
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap');
+
+  :root {
+    --bg: #eef2f7;
+    --panel: #ffffff;
+    --text: #2c3e50;
+    --accent: #3498db;
+    --accent-hover: #2980b9;
+    --border: #d0d7e2;
+    --highlight: yellow;
+    --shadow: 0 4px 10px #0002;
+  }
+
+  [data-theme="dark"] {
+    --bg: #1e1e1e;
+    --panel: #2a2a2a;
+    --text: #e0e0e0;
+    --accent: #5dade2;
+    --accent-hover: #3498db;
+    --border: #444;
+    --highlight: #ffeb3b;
+    --shadow: 0 4px 12px #0005;
+  }
+
+  body {
+    font-family: 'Inter', sans-serif;
+    margin: 0;
+    padding: 20px;
+    background: var(--bg);
+    color: var(--text);
+    transition: background 0.3s, color 0.3s;
+  }
+
+  h1 {
+    text-align: center;
+    margin-bottom: 25px;
+    font-weight: 600;
+  }
+
+  .panel {
+    background: var(--panel);
+    padding: 20px;
+    border-radius: 14px;
+    box-shadow: var(--shadow);
+    margin-bottom: 25px;
+  }
+
+  button {
+    background: var(--accent);
+    color: white;
+    border: none;
+    padding: 10px 16px;
+    border-radius: 10px;
+    cursor: pointer;
+    margin-top: 8px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 600;
+    transition: 0.25s;
+  }
+
+  button:hover {
+    background: var(--accent-hover);
+    transform: translateY(-2px);
+  }
+
+  .list, .results {
+    border: 1px solid var(--border);
+    padding: 12px;
+    max-height: 260px;
+    overflow-y: auto;
+    background: var(--panel);
+    border-radius: 10px;
+  }
+
+  .highlight {
+    background: var(--highlight);
+    font-weight: bold;
+  }
+
+  .text-block {
+    margin-bottom: 15px;
+    border-bottom: 1px dashed var(--border);
+    padding-bottom: 10px;
+  }
+
+  #themeToggle {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: var(--accent);
+    border-radius: 50%;
+    width: 48px;
+    height: 48px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    box-shadow: var(--shadow);
+    cursor: pointer;
+  }
+</style>
+</head>
+
+<body>
+<h1>Busca de Palavras em PDFs, DOC, DOCX e TXT</h1>
+
+<button id="themeToggle">
+  <span class="material-icons">dark_mode</span>
+</button>
+
+<div class="panel">
+  <h2><span class="material-icons">folder_open</span> Pasta de trabalho</h2>
+
+  <p>Escolha a pasta onde estão:</p>
+  <ul>
+    <li>um arquivo <strong>.txt</strong> ou <strong>.doc/.docx</strong> com palavras‑chave</li>
+    <li>arquivos <strong>.pdf</strong>, <strong>.doc</strong> ou <strong>.docx</strong> onde será feita a busca</li>
+  </ul>
+
+  <p style="font-size:14px; color:#555;">
+    No Android, selecione a pasta sincronizada pelo FolderSync (ex.: <em>/storage/emulated/0/FolderSync/OneDrive/...</em>).
+  </p>
+
+  <button id="chooseFolderBtn">
+    <span class="material-icons">folder</span> Escolher pasta
+  </button>
+</div>
+
+<div class="panel">
+  <h2><span class="material-icons">description</span> Palavras‑chave</h2>
+
+  <button id="loadKeywordsBtn">
+    <span class="material-icons">text_snippet</span> Carregar arquivo de palavras‑chave
+  </button>
+
+  <p id="keywordsInfo">Nenhum arquivo carregado.</p>
+
+  <h3>Palavras‑chave carregadas</h3>
+  <div id="keywordsList" class="list"></div>
+</div>
+
+<div class="panel">
+  <h2><span class="material-icons">picture_as_pdf</span> Arquivos para busca</h2>
+
+  <button id="loadPdfsBtn">
+    <span class="material-icons">download</span> Carregar arquivos da pasta
+  </button>
+
+  <h3>Escolher arquivos</h3>
+  <div id="pdfsSelectList" class="list"></div>
+</div>
+
+<div class="panel">
+  <h2><span class="material-icons">search</span> Teste</h2>
+
+  <button id="startTestBtn"><span class="material-icons">play_arrow</span> Sortear termo e iniciar teste</button>
+  <button id="showOccurrencesBtn" disabled><span class="material-icons">visibility</span> Mostrar ocorrências</button>
+  <button id="endTestBtn" disabled><span class="material-icons">stop</span> Encerrar teste</button>
+
+  <h3>Resumo do teste</h3>
+  <div id="testInfo" class="list"></div>
+
+  <h3>Resultados</h3>
+  <div id="results" class="results"></div>
+</div>
+
+<!-- PDF.js -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"></script>
+
+<!-- Tesseract.js (OCR) -->
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js"></script>
+
+<script>
+let folderHandle = null;
+let keywords = [];
+let usedKeywords = [];
+let filesList = [];
+let currentTest = { active: false, keyword: "", fileIds: [] };
+
+const pdfjsLib = window['pdfjsLib'];
+pdfjsLib.GlobalWorkerOptions.workerSrc =
+  'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+const chooseFolderBtn = document.getElementById("chooseFolderBtn");
+const loadKeywordsBtn = document.getElementById("loadKeywordsBtn");
+const loadPdfsBtn = document.getElementById("loadPdfsBtn");
+
+const keywordsInfoEl = document.getElementById("keywordsInfo");
+const keywordsListEl = document.getElementById("keywordsList");
+const pdfsSelectListEl = document.getElementById("pdfsSelectList");
+
+const startTestBtn = document.getElementById("startTestBtn");
+const showOccurrencesBtn = document.getElementById("showOccurrencesBtn");
+const endTestBtn = document.getElementById("endTestBtn");
+const testInfoEl = document.getElementById("testInfo");
+const resultsEl = document.getElementById("results");
+
+/* TEMA */
+const themeToggle = document.getElementById("themeToggle");
+if (window.matchMedia("(prefers-color-scheme: dark)").matches) {
+  document.body.dataset.theme = "dark";
+}
+themeToggle.onclick = () => {
+  document.body.dataset.theme =
+    document.body.dataset.theme === "dark" ? "light" : "dark";
+};
+
+/* ESCOLHER PASTA */
+chooseFolderBtn.onclick = async () => {
+  try {
+    folderHandle = await window.showDirectoryPicker();
+    alert("Pasta selecionada!");
+  } catch (err) {
+    alert("Erro ao acessar a pasta.");
+    console.error(err);
+  }
+};
+
+/* CARREGAR PALAVRAS-CHAVE (TXT, DOC, DOCX) */
+loadKeywordsBtn.onclick = async () => {
+  if (!folderHandle) {
+    alert("Escolha a pasta primeiro.");
+    return;
+  }
+
+  const perm = await folderHandle.requestPermission({ mode: "read" });
+  if (perm !== "granted") {
+    alert("Permissão negada.");
+    return;
+  }
+
+  let fileHandle = null;
+
+  for await (const entry of folderHandle.values()) {
+    const name = entry.name.toLowerCase();
+    if (entry.kind === "file" &&
+        (name.endsWith(".txt") || name.endsWith(".doc") || name.endsWith(".docx"))) {
+      fileHandle = entry;
+      break;
+    }
+  }
+
+  if (!fileHandle) {
+    alert("Nenhum arquivo TXT/DOC/DOCX encontrado.");
+    return;
+  }
+
+  const file = await fileHandle.getFile();
+  const name = file.name.toLowerCase();
+  let raw = "";
+
+  if (name.endsWith(".txt")) {
+    raw = await file.text();
+  } else if (name.endsWith(".docx")) {
+    const arrayBuffer = await file.arrayBuffer();
+    const result = await mammoth.extractRawText({ arrayBuffer });
+    raw = result.value;
+  } else if (name.endsWith(".doc")) {
+    raw = await file.text();
+  }
+
+  keywords = raw
+    .split("\n")
+    .map(l => l.trim())
+    .filter(l => l.length > 0)
+    .flatMap(l => {
+      if (l.toUpperCase().startsWith("#TITULO:")) return [];
+      l = l.replace(/^#PALAVRAS:/i, "").trim();
+      if (l.includes(";")) {
+        return l.split(";").map(t => t.trim()).filter(t => t.length > 0);
+      }
+      return [l];
+    });
+
+  usedKeywords = [];
+
+  keywordsInfoEl.textContent =
+    `Arquivo: ${file.name} — ${keywords.length} termos carregados.`;
+
+  renderKeywords();
+};
+
+/* LISTAR PALAVRAS */
+function renderKeywords() {
+  keywordsListEl.innerHTML = "";
+  keywords.forEach((kw, idx) => {
+    const div = document.createElement("div");
+    const usado = usedKeywords.includes(kw) ? " (já usado)" : "";
+    div.textContent = `${idx + 1}. ${kw}${usado}`;
+    keywordsListEl.appendChild(div);
+  });
+}
+
+/* CARREGAR ARQUIVOS (PDF, DOC, DOCX) */
+loadPdfsBtn.onclick = async () => {
+  if (!folderHandle) {
+    alert("Escolha a pasta primeiro.");
+    return;
+  }
+
+  const perm = await folderHandle.requestPermission({ mode: "read" });
+  if (perm !== "granted") {
+    alert("Permissão negada.");
+    return;
+  }
+
+  filesList = [];
+
+  for await (const entry of folderHandle.values()) {
+    const name = entry.name.toLowerCase();
+    if (entry.kind === "file" &&
+        (name.endsWith(".pdf") || name.endsWith(".doc") || name.endsWith(".docx"))) {
+      filesList.push({ name: entry.name, handle: entry, text: null });
+    }
+  }
+
+  renderFilesList();
+};
+
+/* LISTAR ARQUIVOS */
+function renderFilesList() {
+  pdfsSelectListEl.innerHTML = "";
+
+  filesList.forEach((file, index) => {
+    const label = document.createElement("label");
+    const chk = document.createElement("input");
+    chk.type = "checkbox";
+    chk.value = index;
+    label.appendChild(chk);
+    label.appendChild(document.createTextNode(" " + file.name));
+    pdfsSelectListEl.appendChild(label);
+  });
+}
+
+/* EXTRAIR TEXTO DE PDF */
+async function extrairTextoPdf(file) {
+  const arrayBuffer = await file.arrayBuffer();
+
+  try {
+    const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+    const pdf = await loadingTask.promise;
+
+    let fullText = "";
+
+    for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+      const page = await pdf.getPage(pageNum);
+      const textContent = await page.getTextContent();
+      const strings = textContent.items.map(item => item.str);
+      fullText += strings.join(" ") + "\n";
+    }
+
+    if (fullText.trim().length > 0) return fullText;
+  } catch (err) {
+    console.warn("PDF.js falhou, tentando OCR...");
+  }
+
+  return await extrairTextoPorOCR(file);
+}
+
+/* OCR (somente se necessário) */
+async function extrairTextoPorOCR(file) {
+  try {
+    const pdfData = await file.arrayBuffer();
+    const loadingTask = pdfjsLib.getDocument({ data: pdfData });
+    const pdf = await loadingTask.promise;
+    const page = await pdf.getPage(1);
+
+    const viewport = page.getViewport({ scale: 1.5 });
+    const canvas = document.createElement("canvas");
+    const context = canvas.getContext("2d");
+    canvas.width = viewport.width;
+    canvas.height = viewport.height;
+
+    await page.render({ canvasContext: context, viewport }).promise;
+
+    const { data: { text } } = await Tesseract.recognize(canvas, 'por');
+
+    return text;
+  } catch (err) {
+    console.error("OCR falhou:", err);
+    return "";
+  }
+}
+
+/* EXTRAIR TEXTO DE DOCX */
+async function extrairTextoDocx(file) {
+  const arrayBuffer = await file.arrayBuffer();
+  const result = await mammoth.extractRawText({ arrayBuffer });
+  return result.value || "";
+}
+
+/* EXTRAIR TEXTO DE DOC */
+async function extrairTextoDoc(file) {
+  try {
+    return await file.text();
+  } catch {
+    return "";
+  }
+}
+
+/* EXTRAIR TEXTO DE QUALQUER ARQUIVO */
+async function extrairTextoDeArquivo(obj) {
+  if (obj.text !== null) return obj.text;
+
+  const file = await obj.handle.getFile();
+  const name = file.name.toLowerCase();
+
+  let textoFinal = "";
+
+  if (name.endsWith(".pdf")) {
+    textoFinal = await extrairTextoPdf(file);
+  } else if (name.endsWith(".docx")) {
+    textoFinal = await extrairTextoDocx(file);
+  } else if (name.endsWith(".doc")) {
+    textoFinal = await extrairTextoDoc(file);
+  }
+
+  obj.text = textoFinal;
+  return textoFinal;
+}
+
+/* SORTEAR TERMO */
+startTestBtn.onclick = () => {
+  const selectedIds = Array.from(
+    pdfsSelectListEl.querySelectorAll("input[type='checkbox']:checked")
+  ).map(cb => Number(cb.value));
+
+  if (selectedIds.length === 0) {
+    alert("Selecione arquivos.");
+    return;
+  }
+
+  if (keywords.length === 0) {
+    alert("Carregue o arquivo de palavras‑chave.");
+    return;
+  }
+
+  let disponiveis = keywords.filter(k => !usedKeywords.includes(k));
+
+  if (disponiveis.length === 0) {
+    usedKeywords = [];
+    disponiveis = [...keywords];
+  }
+
+  const termoEscolhido =
+    disponiveis[Math.floor(Math.random() * disponiveis.length)];
+
+  usedKeywords.push(termoEscolhido);
+
+  currentTest.active = true;
+  currentTest.keyword = termoEscolhido;
+  currentTest.fileIds = selectedIds;
+
+  showOccurrencesBtn.disabled = false;
+  endTestBtn.disabled = false;
+
+  testInfoEl.innerHTML =
+    `<p><strong>Teste iniciado</strong></p>
+     <p>Termo sorteado: <strong>${termoEscolhido}</strong></p>
+     <p>Arquivos selecionados: ${selectedIds.map(id => filesList[id].name).join(", ")}</p>`;
+
+  renderKeywords();
+};
+
+/* EXTRAIR TRECHOS */
+function extrairTrechos(texto, termo) {
+  const termoLower = termo.toLowerCase();
+  const textoLower = texto.toLowerCase();
+
+  const trechos = [];
+  let pos = 0;
+
+  while (true) {
+    const idx = textoLower.indexOf(termoLower, pos);
+    if (idx === -1) break;
+
+    const inicio = Math.max(0, idx - 80);
+    const fim = Math.min(texto.length, idx + termo.length + 80);
+
+    trechos.push(texto.substring(inicio, fim));
+    pos = idx + termo.length;
+  }
+
+  return trechos;
+}
+
+/* DESTACAR OCORRÊNCIAS */
+function highlightOccurrences(text, keywords) {
+  let result = text;
+  keywords.forEach(kw => {
+    const escaped = kw.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const regex = new RegExp(escaped, "gi");
+    result = result.replace(regex, m => `<span class="highlight">${m}</span>`);
+  });
+  return result;
+}
+
+/* MOSTRAR OCORRÊNCIAS */
+showOccurrencesBtn.onclick = async () => {
+  if (!currentTest.active) {
+    alert("Nenhum teste ativo.");
+    return;
+  }
+
+  const termo = currentTest.keyword
+
+  resultsEl.innerHTML = "<p>Processando arquivos...</p>";
+
+  let totalEncontrados = 0;
+  resultsEl.innerHTML = "";
+
+  for (const id of currentTest.fileIds) {
+    const fileObj = filesList[id];
+    const texto = await extrairTextoDeArquivo(fileObj);
+
+    if (!texto || texto.trim().length === 0) continue;
+
+    const trechos = extrairTrechos(texto, termo);
+
+    if (trechos.length > 0) {
+      totalEncontrados++;
+
+      const bloco = document.createElement("div");
+      bloco.className = "text-block";
+
+      let html = `<strong>${fileObj.name}</strong><br><ul>`;
+
+      trechos.forEach(tr => {
+        html += `<li>${highlightOccurrences(tr, [termo])}</li>`;
+      });
+
+      html += "</ul>";
+
+      bloco.innerHTML = html;
+      resultsEl.appendChild(bloco);
+    }
+  }
+
+  if (totalEncontrados === 0) {
+    resultsEl.innerHTML =
+      `<p>Nenhum trecho contém o termo <strong>${termo}</strong>.</p>`;
+  }
+};
+
+/* ENCERRAR TESTE */
+endTestBtn.onclick = () => {
+  currentTest.active = false;
+  currentTest.keyword = "";
+  currentTest.fileIds = [];
+
+  showOccurrencesBtn.disabled = true;
+  endTestBtn.disabled = true;
+
+  resultsEl.innerHTML = "<p>Teste encerrado.</p>";
+  testInfoEl.innerHTML = "";
+
+  pdfsSelectListEl.querySelectorAll("input[type='checkbox']").forEach(cb => {
+    cb.checked = false;
+  });
+};
+
+/* INICIALIZAÇÃO */
+keywords = [];
+usedKeywords = [];
+filesList = [];
+</script>
+
+</body>
+</html>
+
