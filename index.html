@@ -10,7 +10,6 @@
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap');
 
-  /* TEMA AZUL ESCURO PROFISSIONAL (FLUENT) */
   :root {
     --bg: #0A1A2F;
     --panel: #11263F;
@@ -27,30 +26,12 @@
     --zoom-large: 32px;
   }
 
-  [data-theme="dark"] {
-    --bg: #071423;
-    --panel: #0E2238;
-    --text: #E6EEF7;
-    --accent: #4EA3FF;
-    --accent-hover: #6BB8FF;
-    --border: #1F3A57;
-    --highlight: var(--highlight-dark);
-    --shadow: 0 4px 14px #0007;
-  }
-
   body {
     font-family: 'Inter', sans-serif;
     margin: 0;
     padding: 20px;
     background: var(--bg);
     color: var(--text);
-    transition: background 0.3s, color 0.3s;
-  }
-
-  h1 {
-    text-align: center;
-    margin-bottom: 25px;
-    font-weight: 600;
   }
 
   .panel {
@@ -59,11 +40,6 @@
     border-radius: 14px;
     box-shadow: var(--shadow);
     margin-bottom: 25px;
-    transition: transform 0.3s ease, opacity 0.3s ease;
-  }
-
-  .panel.hidden {
-    display: none !important;
   }
 
   button {
@@ -78,12 +54,6 @@
     align-items: center;
     gap: 6px;
     font-weight: 600;
-    transition: 0.25s;
-  }
-
-  button:hover {
-    background: var(--accent-hover);
-    transform: translateY(-2px);
   }
 
   .list, .results {
@@ -93,13 +63,6 @@
     overflow-y: auto;
     background: var(--panel);
     border-radius: 10px;
-    transition: all 0.3s ease;
-  }
-
-  .highlight {
-    background: var(--highlight);
-    padding: 2px 3px;
-    border-radius: 4px;
   }
 
   .big-term {
@@ -110,9 +73,7 @@
     padding: 14px 18px;
     border-radius: 12px;
     margin: 15px 0;
-    display: block;
     text-align: center;
-    animation: fadeIn 0.4s ease;
     border: 1px solid #d0e2ff;
   }
 
@@ -124,7 +85,6 @@
     color: #0b57d0;
     border-radius: 12px;
     margin-bottom: 14px;
-    animation: fadeIn 0.4s ease;
     border: 1px solid #d0e2ff;
   }
 
@@ -134,26 +94,6 @@
 
   .zoom-large .big-occurrence {
     font-size: var(--zoom-large);
-  }
-
-  @keyframes fadeIn {
-    from { opacity: 0; transform: translateY(10px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
-
-  #themeToggle {
-    position: fixed;
-    top: 20px;
-    right: 20px;
-    background: var(--accent);
-    border-radius: 50%;
-    width: 48px;
-    height: 48px;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    box-shadow: var(--shadow);
-    cursor: pointer;
   }
 
   #readingModeExit {
@@ -173,7 +113,6 @@
   <span class="material-icons">dark_mode</span>
 </button>
 
-<!-- Inputs invisíveis -->
 <input type="file" id="keywordPicker" accept=".txt" style="display:none">
 <input type="file" id="filesPicker" multiple accept=".txt,.pdf,.doc,.docx" style="display:none">
 
@@ -183,47 +122,35 @@
 
 <div id="mainContent">
 
-  <!-- PAINEL: Pasta -->
   <div class="panel">
     <h2><span class="material-icons">folder_open</span> Pasta de trabalho</h2>
-    <p>Escolha a pasta onde estão seus arquivos.</p>
     <button id="chooseFolderBtn">
       <span class="material-icons">folder</span> Escolher pasta
     </button>
   </div>
 
-  <!-- PAINEL: Palavras-chave -->
   <div class="panel">
-    <h2><span class="material-icons">description</span> Arquivo de palavras‑chave (TXT)</h2>
-
+    <h2><span class="material-icons">description</span> Palavras‑chave (TXT)</h2>
     <button id="loadKeywordsBtn">
-      <span class="material-icons">text_snippet</span> Selecionar arquivo TXT
+      <span class="material-icons">text_snippet</span> Selecionar TXT
     </button>
-
-    <p id="keywordsInfo">Nenhum arquivo TXT carregado.</p>
-
-    <h3>Palavras‑chave carregadas</h3>
+    <p id="keywordsInfo">Nenhum arquivo carregado.</p>
     <div id="keywordsList" class="list"></div>
   </div>
 
-  <!-- PAINEL: Arquivos -->
   <div class="panel">
-    <h2><span class="material-icons">picture_as_pdf</span> Arquivos para busca</h2>
-
+    <h2><span class="material-icons">picture_as_pdf</span> Arquivos</h2>
     <button id="loadFilesBtn">
-      <span class="material-icons">download</span> Selecionar arquivos (TXT, PDF, DOC, DOCX)
+      <span class="material-icons">download</span> Selecionar arquivos
     </button>
-
-    <h3>Arquivos selecionados</h3>
     <div id="filesSelectList" class="list"></div>
   </div>
 
-  <!-- PAINEL: Teste -->
   <div class="panel">
     <h2><span class="material-icons">search</span> Teste</h2>
 
     <button id="startTestBtn">
-      <span class="material-icons">play_arrow</span> Sortear termo e iniciar teste
+      <span class="material-icons">play_arrow</span> Sortear termo
     </button>
 
     <button id="showOccurrencesBtn" disabled>
@@ -239,149 +166,20 @@
     </button>
 
     <button id="endTestBtn" disabled>
-      <span class="material-icons">stop</span> Encerrar teste
+      <span class="material-icons">stop</span> Encerrar
     </button>
 
-    <h3>Resumo do teste</h3>
     <div id="testInfo" class="list"></div>
-
-    <h3>Resultados</h3>
     <div id="results" class="results"></div>
   </div>
 
 </div>
 
-<!-- PDF.js -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"></script>
-
-<!-- Tesseract.js (OCR) -->
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js"></script>
 
 <script>
-let folderHandle = null;
-let keywords = [];
-let usedKeywords = [];
-let filesList = [];
-let currentTest = { active: false, keyword: "", fileIds: [] };
-
-let zoomLevel = 0; // 0 = normal, 1 = médio, 2 = grande
-
-const pdfjsLib = window['pdfjsLib'];
-pdfjsLib.GlobalWorkerOptions.workerSrc =
-  'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-
-const chooseFolderBtn = document.getElementById("chooseFolderBtn");
-const loadKeywordsBtn = document.getElementById("loadKeywordsBtn");
-const loadFilesBtn = document.getElementById("loadFilesBtn");
-
-const keywordPicker = document.getElementById("keywordPicker");
-const filesPicker = document.getElementById("filesPicker");
-
-const keywordsInfoEl = document.getElementById("keywordsInfo");
-const keywordsListEl = document.getElementById("keywordsList");
-const filesSelectListEl = document.getElementById("filesSelectList");
-
-const startTestBtn = document.getElementById("startTestBtn");
-const showOccurrencesBtn = document.getElementById("showOccurrencesBtn");
-const zoomBtn = document.getElementById("zoomBtn");
-const readingModeBtn = document.getElementById("readingModeBtn");
-const readingModeExit = document.getElementById("readingModeExit");
-const testInfoEl = document.getElementById("testInfo");
-const resultsEl = document.getElementById("results");
-const mainContent = document.getElementById("mainContent");
-
-/* TEMA AZUL ESCURO PROFISSIONAL */
-document.body.dataset.theme = "dark";
-
-themeToggle.onclick = () => {
-  document.body.dataset.theme =
-    document.body.dataset.theme === "dark" ? "light" : "dark";
-};
-
-/* ESCOLHER PASTA */
-chooseFolderBtn.onclick = async () => {
-  try {
-    folderHandle = await window.showDirectoryPicker();
-    alert("Pasta selecionada!");
-  } catch (err) {
-    alert("Erro ao acessar a pasta.");
-    console.error(err);
-  }
-};
-
-/* BOTÃO → abre input invisível */
-loadKeywordsBtn.onclick = () => keywordPicker.click();
-
-/* PROCESSAR TXT DE PALAVRAS-CHAVE */
-keywordPicker.onchange = async (ev) => {
-  const file = ev.target.files[0];
-  if (!file) return;
-
-  const raw = await file.text();
-
-  keywords = raw
-    .split("\n")
-    .map(l => l.trim())
-    .filter(l => l.length > 0)
-    .flatMap(l => {
-      if (l.toUpperCase().startsWith("#TITULO:")) return [];
-      l = l.replace(/^#PALAVRAS:/i, "").trim();
-      if (l.includes(";")) {
-        return l.split(";").map(t => t.trim()).filter(t => t.length > 0);
-      }
-      return [l];
-    });
-
-  usedKeywords = [];
-
-  keywordsInfoEl.textContent =
-    `Arquivo TXT carregado: ${file.name} — ${keywords.length} termos.`;
-
-  renderKeywords();
-};
-
-/* LISTAR PALAVRAS */
-function renderKeywords() {
-  keywordsListEl.innerHTML = "";
-  keywords.forEach((kw, idx) => {
-    const div = document.createElement("div");
-    const usado = usedKeywords.includes(kw) ? " (já usado)" : "";
-    div.textContent = `${idx + 1}. ${kw}${usado}`;
-    keywordsListEl.appendChild(div);
-  });
-}
-
-/* BOTÃO → abre input invisível */
-loadFilesBtn.onclick = () => filesPicker.click();
-
-/* PROCESSAR ARQUIVOS SELECIONADOS */
-filesPicker.onchange = async (ev) => {
-  const selected = Array.from(ev.target.files);
-  filesList = selected.map(f => ({
-    name: f.name,
-    handle: f,
-    text: null
-  }));
-
-  renderFilesList();
-};
-
-/* LISTAR ARQUIVOS */
-function renderFilesList() {
-  filesSelectListEl.innerHTML = "";
-
-  filesList.forEach((file, index) => {
-    const label = document.createElement("label");
-    const chk = document.createElement("input");
-    chk.type = "checkbox";
-    chk.value = index;
-    label.appendChild(chk);
-    label.appendChild(document.createTextNode(" " + file.name));
-    filesSelectListEl.appendChild(label);
-  });
-}
-</script>
 
 /* EXTRAIR TEXTO DE PDF */
 async function extrairTextoPdf(file) {
