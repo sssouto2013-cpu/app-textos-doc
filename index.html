@@ -368,6 +368,276 @@ function renderFilesList() {
   });
 }
 </script>
+
+/* EXTRAIR TEXTO DE PDF */
+async function extrairTextoPdf(file) {
+  const arrayBuffer = await file.arrayBuffer();
+
+  try {
+    const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+    const pdf = await loadingTask.promise;
+
+    let fullText = "";
+
+    for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+      const page = await pdf.getPage(pageNum);
+      const textContent = await page.getTextContent();
+      const strings = textContent.items.map(item => item.str);
+      fullText += strings.join(" ") + "\n";
+    }
+
+    if (fullText.trim().length > 0) return fullText;
+  } catch (err) {
+    console.warn("PDF.js falhou, tentando OCR...");
+  }
+
+  return await extrairTextoPorOCR(file);
+}
+
+/* OCR */
+async function extrairTextoPorOCR(file) {
+  try {
+    const pdfData = await file.arrayBuffer();
+    const loadingTask = pdfjsLib.getDocument({ data: pdfData });
+    const pdf = await loadingTask.promise;
+    const page = await pdf.getPage(1);
+
+    const viewport = page.getViewport({ scale: 1.5 });
+    const canvas = document.createElement("canvas");
+    const context = canvas.getContext("2d");
+    canvas.width = viewport.width;
+    canvas.height = viewport.height;
+
+    await page.render({ canvasContext: context, viewport }).promise;
+
+    const { data: { text } } = await Tesseract.recognize(canvas, 'por');
+
+    return text;
+  } catch (err) {
+    console.error("OCR falhou:", err);
+    return "";
+  }
+}
+
+/* DOCX */
+async function extrairTextoDocx(file) {
+  const arrayBuffer = await file.arrayBuffer();
+  const result = await mammoth.extractRawText({ arrayBuffer });
+  return result.value || "";
+}
+
+/* DOC */
+async function extrairTextoDoc(file) {
+  try {
+    return await file.text();
+  } catch {
+    return "";
+  }
+}
+
+/* EXTRAIR TEXTO DE QUALQUER ARQUIVO */
+async function extrairTextoDeArquivo(obj) {
+  if (obj.text !== null) return obj.text;
+
+  const file = obj.handle;
+  const name = file.name.toLowerCase();
+
+  let textoFinal = "";
+
+  if (name.endsWith(".pdf")) {
+    textoFinal = await extrairTextoPdf(file);
+  } else if (name.endsWith(".docx")) {
+    textoFinal = await extrairTextoDocx(file);
+  } else if (name.endsWith(".doc")) {
+    textoFinal = await extrairTextoDoc(file);
+  } else if (name.endsWith(".txt")) {
+    textoFinal = await file.text();
+  }
+
+  obj.text = textoFinal;
+  return textoFinal;
+}
+
+/* SORTEAR TERMO */
+startTestBtn.onclick = () => {
+  const selectedIds = Array.from(
+    filesSelectListEl.querySelectorAll("input[type='checkbox']:checked")
+  ).map(cb => Number(cb.value));
+
+  if (selectedIds.length === 0) {
+    alert("Selecione arquivos.");
+    return;
+  }
+
+  if (keywords.length === 0) {
+    alert("Carregue o arquivo de palavras‑chave.");
+    return;
+  }
+
+  let disponiveis = keywords.filter(k => !usedKeywords.includes(k));
+
+  if (disponiveis.length === 0) {
+    usedKeywords = [];
+    disponiveis = [...keywords];
+  }
+
+  const termoEscolhido =
+    disponiveis[Math.floor(Math.random() * disponiveis.length)];
+
+  usedKeywords.push(termoEscolhido);
+
+  currentTest.active = true;
+  currentTest.keyword = termoEscolhido;
+  currentTest.fileIds = selectedIds;
+
+  showOccurrencesBtn.disabled = false;
+  zoomBtn.disabled = false;
+  readingModeBtn.disabled = false;
+  endTestBtn.disabled = false;
+
+  testInfoEl.innerHTML =
+    `<p><strong>Teste iniciado</strong></p>
+     <p class="big-term">${termoEscolhido}</p>
+     <p>Arquivos selecionados: ${selectedIds.map(id => filesList[id].name).join(", ")}</p>`;
+};
+
+/* TRECHOS */
+function extrairTrechos(texto, termo) {
+  const termoLower = termo.toLowerCase();
+  const textoLower = texto.toLowerCase();
+
+  const trechos = [];
+  let pos = 0;
+
+  while (true) {
+    const idx = textoLower.indexOf(termoLower, pos);
+    if (idx === -1) break;
+
+    const inicio = Math.max(0, idx - 80);
+    const fim = Math.min(texto.length, idx + termo.length + 80);
+
+    trechos.push(texto.substring(inicio, fim));
+    pos = idx + termo.length;
+  }
+
+  return trechos;
+}
+
+/* DESTACAR */
+function highlightOccurrences(text, keywords) {
+  let result = text;
+  keywords.forEach(kw => {
+    const escaped = kw.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const regex = new RegExp(escaped, "gi");
+    result = result.replace(regex, m => `<span class="highlight">${m}</span>`);
+  });
+  return result;
+}
+
+/* MOSTRAR OCORRÊNCIAS */
+showOccurrencesBtn.onclick = async () => {
+  readingModeExit.classList.remove("hidden");
+
+  const termo = currentTest.keyword;
+  resultsEl.innerHTML = "<p>Processando arquivos...</p>";
+
+  let totalEncontrados = 0;
+  resultsEl.innerHTML = "";
+  document.body.classList.remove("zoom-medium", "zoom-large");
+  zoomLevel = 0;
+  zoomBtn.textContent = "Aumentar Zoom";
+
+  for (const id of currentTest.fileIds) {
+    const fileObj = filesList[id];
+    const texto = await extrairTextoDeArquivo(fileObj);
+
+    if (!texto || texto.trim().length === 0) continue;
+
+    const trechos = extrairTrechos(texto, termo);
+
+    if (trechos.length > 0) {
+      totalEncontrados++;
+
+      const bloco = document.createElement("div");
+      bloco.className = "text-block";
+
+      let html = `<strong>${fileObj.name}</strong><br><ul>`;
+
+      trechos.forEach(tr => {
+        html += `<li class="big-occurrence">${highlightOccurrences(tr, [termo])}</li>`;
+      });
+
+      html += "</ul>";
+
+      bloco.innerHTML = html;
+      resultsEl.appendChild(bloco);
+    }
+  }
+
+  if (totalEncontrados === 0) {
+    resultsEl.innerHTML =
+      `<p>Nenhum trecho contém o termo <strong>${termo}</strong>.</p>`;
+  }
+};
+
+/* ZOOM */
+zoomBtn.onclick = () => {
+  zoomLevel = (zoomLevel + 1) % 3;
+
+  document.body.classList.remove("zoom-medium", "zoom-large");
+
+  if (zoomLevel === 0) {
+    zoomBtn.textContent = "Aumentar Zoom";
+  } else if (zoomLevel === 1) {
+    document.body.classList.add("zoom-medium");
+    zoomBtn.textContent = "Zoom Médio";
+  } else if (zoomLevel === 2) {
+    document.body.classList.add("zoom-large");
+    zoomBtn.textContent = "Zoom Grande";
+  }
+};
+
+/* MODO LEITURA */
+readingModeBtn.onclick = () => {
+  mainContent.classList.add("hidden");
+  resultsEl.style.maxHeight = "none";
+  resultsEl.style.height = "auto";
+};
+
+readingModeExit.onclick = () => {
+  mainContent.classList.remove("hidden");
+  readingModeExit.classList.add("hidden");
+  resultsEl.style.maxHeight = "260px";
+};
+
+/* ENCERRAR */
+endTestBtn.onclick = () => {
+  currentTest.active = false;
+  currentTest.keyword = "";
+  currentTest.fileIds = [];
+
+  showOccurrencesBtn.disabled = true;
+  zoomBtn.disabled = true;
+  readingModeBtn.disabled = true;
+  endTestBtn.disabled = true;
+
+  resultsEl.innerHTML = "<p>Teste encerrado.</p>";
+  testInfoEl.innerHTML = "";
+
+  filesSelectListEl.querySelectorAll("input[type='checkbox']").forEach(cb => {
+    cb.checked = false;
+  });
+
+  document.body.classList.remove("zoom-medium", "zoom-large");
+  zoomLevel = 0;
+  zoomBtn.textContent = "Aumentar Zoom";
+};
+
+/* INICIALIZAÇÃO */
+keywords = [];
+usedKeywords = [];
+filesList = [];
+</script>
 </body>
 </html>
 
