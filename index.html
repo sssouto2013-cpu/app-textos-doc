@@ -20,7 +20,12 @@
     --accent-hover: #2980b9;
     --border: #d0d7e2;
     --highlight: #fff8b3; /* amarelo suave */
+    --highlight-dark: #fff4a0; /* ainda mais suave no modo escuro */
     --shadow: 0 4px 10px #0002;
+
+    --zoom-normal: 22px;
+    --zoom-medium: 26px;
+    --zoom-large: 32px;
   }
 
   [data-theme="dark"] {
@@ -30,7 +35,7 @@
     --accent: #5dade2;
     --accent-hover: #3498db;
     --border: #444;
-    --highlight: #fff2a8; /* amarelo suave no modo escuro */
+    --highlight: var(--highlight-dark);
     --shadow: 0 4px 12px #0005;
   }
 
@@ -40,6 +45,7 @@
     padding: 20px;
     background: var(--bg);
     color: var(--text);
+    transition: background 0.3s, color 0.3s;
   }
 
   h1 {
@@ -54,6 +60,11 @@
     border-radius: 14px;
     box-shadow: var(--shadow);
     margin-bottom: 25px;
+    transition: transform 0.3s ease, opacity 0.3s ease;
+  }
+
+  .panel.hidden {
+    display: none !important;
   }
 
   button {
@@ -83,6 +94,7 @@
     overflow-y: auto;
     background: var(--panel);
     border-radius: 10px;
+    transition: all 0.3s ease;
   }
 
   .highlight {
@@ -91,10 +103,40 @@
     border-radius: 4px;
   }
 
-  .text-block {
-    margin-bottom: 15px;
-    border-bottom: 1px dashed var(--border);
-    padding-bottom: 10px;
+  .big-term {
+    font-size: 34px;
+    font-weight: 800;
+    color: #0b57d0;
+    background: #e8f0fe;
+    padding: 14px 18px;
+    border-radius: 12px;
+    margin: 15px 0;
+    display: block;
+    text-align: center;
+    animation: fadeIn 0.4s ease;
+  }
+
+  .big-occurrence {
+    font-size: var(--zoom-normal);
+    line-height: 1.6;
+    padding: 12px;
+    background: var(--highlight);
+    border-radius: 10px;
+    margin-bottom: 14px;
+    animation: fadeIn 0.4s ease;
+  }
+
+  .zoom-medium .big-occurrence {
+    font-size: var(--zoom-medium);
+  }
+
+  .zoom-large .big-occurrence {
+    font-size: var(--zoom-large);
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
   }
 
   #themeToggle {
@@ -111,6 +153,14 @@
     box-shadow: var(--shadow);
     cursor: pointer;
   }
+
+  #readingModeExit {
+    background: #d9534f;
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    z-index: 999;
+  }
 </style>
 </head>
 
@@ -125,14 +175,15 @@
 <input type="file" id="keywordPicker" accept=".txt" style="display:none">
 <input type="file" id="filesPicker" multiple accept=".txt,.pdf,.doc,.docx" style="display:none">
 
+<button id="readingModeExit" class="hidden">
+  <span class="material-icons">arrow_back</span> Voltar ao modo normal
+</button>
+
+<div id="mainContent">
 <div class="panel">
   <h2><span class="material-icons">folder_open</span> Pasta de trabalho</h2>
 
   <p>Escolha a pasta onde estão seus arquivos.</p>
-
-  <p style="font-size:14px; color:#555;">
-    No Android, selecione a pasta sincronizada pelo FolderSync (ex.: <em>/storage/emulated/0/FolderSync/OneDrive/...</em>).
-  </p>
 
   <button id="chooseFolderBtn">
     <span class="material-icons">folder</span> Escolher pasta
@@ -168,6 +219,8 @@
 
   <button id="startTestBtn"><span class="material-icons">play_arrow</span> Sortear termo e iniciar teste</button>
   <button id="showOccurrencesBtn" disabled><span class="material-icons">visibility</span> Mostrar ocorrências</button>
+  <button id="zoomBtn" disabled><span class="material-icons">zoom_in</span> Aumentar Zoom</button>
+  <button id="readingModeBtn" disabled><span class="material-icons">chrome_reader_mode</span> Modo leitura</button>
   <button id="endTestBtn" disabled><span class="material-icons">stop</span> Encerrar teste</button>
 
   <h3>Resumo do teste</h3>
@@ -175,6 +228,7 @@
 
   <h3>Resultados</h3>
   <div id="results" class="results"></div>
+</div>
 </div>
 
 <!-- PDF.js -->
@@ -190,6 +244,8 @@ let keywords = [];
 let usedKeywords = [];
 let filesList = [];
 let currentTest = { active: false, keyword: "", fileIds: [] };
+
+let zoomLevel = 0; // 0 = normal, 1 = médio, 2 = grande
 
 const pdfjsLib = window['pdfjsLib'];
 pdfjsLib.GlobalWorkerOptions.workerSrc =
@@ -208,9 +264,12 @@ const filesSelectListEl = document.getElementById("filesSelectList");
 
 const startTestBtn = document.getElementById("startTestBtn");
 const showOccurrencesBtn = document.getElementById("showOccurrencesBtn");
-const endTestBtn = document.getElementById("endTestBtn");
+const zoomBtn = document.getElementById("zoomBtn");
+const readingModeBtn = document.getElementById("readingModeBtn");
+const readingModeExit = document.getElementById("readingModeExit");
 const testInfoEl = document.getElementById("testInfo");
 const resultsEl = document.getElementById("results");
+const mainContent = document.getElementById("mainContent");
 
 /* TEMA */
 const themeToggle = document.getElementById("themeToggle");
@@ -427,11 +486,13 @@ startTestBtn.onclick = () => {
   currentTest.fileIds = selectedIds;
 
   showOccurrencesBtn.disabled = false;
+  zoomBtn.disabled = false;
+  readingModeBtn.disabled = false;
   endTestBtn.disabled = false;
 
   testInfoEl.innerHTML =
     `<p><strong>Teste iniciado</strong></p>
-     <p>Termo sorteado: <strong>${termoEscolhido}</strong></p>
+     <p class="big-term">${termoEscolhido}</p>
      <p>Arquivos selecionados: ${selectedIds.map(id => filesList[id].name).join(", ")}</p>`;
 
   renderKeywords();
@@ -482,6 +543,9 @@ showOccurrencesBtn.onclick = async () => {
 
   let totalEncontrados = 0;
   resultsEl.innerHTML = "";
+  document.body.classList.remove("zoom-medium", "zoom-large");
+  zoomLevel = 0;
+  zoomBtn.textContent = "Aumentar Zoom";
 
   for (const id of currentTest.fileIds) {
     const fileObj = filesList[id];
@@ -500,7 +564,7 @@ showOccurrencesBtn.onclick = async () => {
       let html = `<strong>${fileObj.name}</strong><br><ul>`;
 
       trechos.forEach(tr => {
-        html += `<li>${highlightOccurrences(tr, [termo])}</li>`;
+        html += `<li class="big-occurrence">${highlightOccurrences(tr, [termo])}</li>`;
       });
 
       html += "</ul>";
@@ -516,16 +580,35 @@ showOccurrencesBtn.onclick = async () => {
   }
 };
 
-/* ENCERRAR TESTE */
-endTestBtn.onclick = () => {
-  currentTest.active = false;
-  currentTest.keyword = "";
-  currentTest
+/* ZOOM POR NÍVEIS (Normal → Médio → Grande → Normal) */
+zoomBtn.onclick = () => {
+  zoomLevel = (zoomLevel + 1) % 3;
 
-  if (totalEncontrados === 0) {
-    resultsEl.innerHTML =
-      `<p>Nenhum trecho contém o termo <strong>${termo}</strong>.</p>`;
+  document.body.classList.remove("zoom-medium", "zoom-large");
+
+  if (zoomLevel === 0) {
+    zoomBtn.textContent = "Aumentar Zoom";
+  } else if (zoomLevel === 1) {
+    document.body.classList.add("zoom-medium");
+    zoomBtn.textContent = "Zoom Médio";
+  } else if (zoomLevel === 2) {
+    document.body.classList.add("zoom-large");
+    zoomBtn.textContent = "Zoom Grande";
   }
+};
+
+/* MODO LEITURA (oculta tudo, deixa só o texto + botão voltar) */
+readingModeBtn.onclick = () => {
+  mainContent.classList.add("hidden");
+  readingModeExit.classList.remove("hidden");
+  resultsEl.style.maxHeight = "none";
+  resultsEl.style.height = "auto";
+};
+
+readingModeExit.onclick = () => {
+  mainContent.classList.remove("hidden");
+  readingModeExit.classList.add("hidden");
+  resultsEl.style.maxHeight = "260px";
 };
 
 /* ENCERRAR TESTE */
@@ -535,6 +618,8 @@ endTestBtn.onclick = () => {
   currentTest.fileIds = [];
 
   showOccurrencesBtn.disabled = true;
+  zoomBtn.disabled = true;
+  readingModeBtn.disabled = true;
   endTestBtn.disabled = true;
 
   resultsEl.innerHTML = "<p>Teste encerrado.</p>";
@@ -543,6 +628,10 @@ endTestBtn.onclick = () => {
   filesSelectListEl.querySelectorAll("input[type='checkbox']").forEach(cb => {
     cb.checked = false;
   });
+
+  document.body.classList.remove("zoom-medium", "zoom-large");
+  zoomLevel = 0;
+  zoomBtn.textContent = "Aumentar Zoom";
 };
 
 /* INICIALIZAÇÃO */
@@ -553,3 +642,4 @@ filesList = [];
 
 </body>
 </html>
+
