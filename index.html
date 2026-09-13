@@ -12,14 +12,14 @@
 
   /* TEMA AZUL ESCURO PROFISSIONAL (FLUENT) */
   :root {
-    --bg: #0A1A2F;              /* azul escuro profundo */
-    --panel: #11263F;           /* painel azul-acinzentado */
-    --text: #E6EEF7;            /* texto claro */
-    --accent: #4EA3FF;          /* azul claro Fluent */
-    --accent-hover: #6BB8FF;    /* hover */
-    --border: #1F3A57;          /* borda azul escura */
-    --highlight: #e8f0fe;       /* fundo branco-azulado */
-    --highlight-dark: #dce8ff;  /* ainda mais suave no modo escuro */
+    --bg: #0A1A2F;
+    --panel: #11263F;
+    --text: #E6EEF7;
+    --accent: #4EA3FF;
+    --accent-hover: #6BB8FF;
+    --border: #1F3A57;
+    --highlight: #e8f0fe;
+    --highlight-dark: #dce8ff;
     --shadow: 0 4px 12px #0005;
 
     --zoom-normal: 22px;
@@ -182,6 +182,8 @@
 </button>
 
 <div id="mainContent">
+
+  <!-- PAINEL: Pasta -->
   <div class="panel">
     <h2><span class="material-icons">folder_open</span> Pasta de trabalho</h2>
     <p>Escolha a pasta onde estão seus arquivos.</p>
@@ -190,40 +192,52 @@
     </button>
   </div>
 
+  <!-- PAINEL: Palavras-chave -->
   <div class="panel">
     <h2><span class="material-icons">description</span> Arquivo de palavras‑chave (TXT)</h2>
+
     <button id="loadKeywordsBtn">
       <span class="material-icons">text_snippet</span> Selecionar arquivo TXT
     </button>
+
     <p id="keywordsInfo">Nenhum arquivo TXT carregado.</p>
+
     <h3>Palavras‑chave carregadas</h3>
     <div id="keywordsList" class="list"></div>
   </div>
 
+  <!-- PAINEL: Arquivos -->
   <div class="panel">
     <h2><span class="material-icons">picture_as_pdf</span> Arquivos para busca</h2>
+
     <button id="loadFilesBtn">
       <span class="material-icons">download</span> Selecionar arquivos (TXT, PDF, DOC, DOCX)
     </button>
+
     <h3>Arquivos selecionados</h3>
     <div id="filesSelectList" class="list"></div>
   </div>
 
+  <!-- PAINEL: Teste -->
   <div class="panel">
     <h2><span class="material-icons">search</span> Teste</h2>
 
     <button id="startTestBtn">
       <span class="material-icons">play_arrow</span> Sortear termo e iniciar teste
     </button>
+
     <button id="showOccurrencesBtn" disabled>
       <span class="material-icons">visibility</span> Mostrar ocorrências
     </button>
+
     <button id="zoomBtn" disabled>
       <span class="material-icons">zoom_in</span> Aumentar Zoom
     </button>
+
     <button id="readingModeBtn" disabled>
       <span class="material-icons">chrome_reader_mode</span> Modo leitura
     </button>
+
     <button id="endTestBtn" disabled>
       <span class="material-icons">stop</span> Encerrar teste
     </button>
@@ -234,6 +248,7 @@
     <h3>Resultados</h3>
     <div id="results" class="results"></div>
   </div>
+
 </div>
 
 <!-- PDF.js -->
@@ -276,9 +291,8 @@ const testInfoEl = document.getElementById("testInfo");
 const resultsEl = document.getElementById("results");
 const mainContent = document.getElementById("mainContent");
 
-/* TEMA */
-const themeToggle = document.getElementById("themeToggle");
-document.body.dataset.theme = "dark"; // força tema azul escuro profissional
+/* TEMA AZUL ESCURO PROFISSIONAL */
+document.body.dataset.theme = "dark";
 
 themeToggle.onclick = () => {
   document.body.dataset.theme =
@@ -299,7 +313,7 @@ chooseFolderBtn.onclick = async () => {
 /* BOTÃO → abre input invisível */
 loadKeywordsBtn.onclick = () => keywordPicker.click();
 
-/* PROCESSAR TXT */
+/* PROCESSAR TXT DE PALAVRAS-CHAVE */
 keywordPicker.onchange = async (ev) => {
   const file = ev.target.files[0];
   if (!file) return;
@@ -638,6 +652,6 @@ keywords = [];
 usedKeywords = [];
 filesList = [];
 </script>
+
 </body>
 </html>
-
