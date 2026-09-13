@@ -10,9 +10,7 @@
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap');
 
-  .hidden {
-    display: none !important;
-  }
+  .hidden { display: none !important; }
 
   :root {
     --bg: #0A1A2F;
@@ -77,17 +75,21 @@
     font-weight: 600;
   }
 
-  button:hover {
-    background: var(--accent-hover);
-  }
+  button:hover { background: var(--accent-hover); }
 
-  .list, .results {
+  .list {
     border: 1px solid var(--border);
     padding: 12px;
     max-height: 260px;
     overflow-y: auto;
     background: var(--panel);
     border-radius: 10px;
+  }
+
+  .results {
+    max-height: none;
+    height: auto;
+    overflow-y: visible;
   }
 
   .big-term {
@@ -113,13 +115,8 @@
     border: 1px solid #d0e2ff;
   }
 
-  .zoom-medium .big-occurrence {
-    font-size: var(--zoom-medium);
-  }
-
-  .zoom-large .big-occurrence {
-    font-size: var(--zoom-large);
-  }
+  .zoom-medium .big-occurrence { font-size: var(--zoom-medium); }
+  .zoom-large .big-occurrence { font-size: var(--zoom-large); }
 
   #readingModeExit {
     background: #d9534f;
@@ -238,6 +235,7 @@ const readingModeExit = document.getElementById("readingModeExit");
 const testInfoEl = document.getElementById("testInfo");
 const resultsEl = document.getElementById("results");
 const mainContent = document.getElementById("mainContent");
+const themeToggle = document.getElementById("themeToggle");
 
 /* TEMA */
 themeToggle.onclick = () => {
@@ -543,8 +541,7 @@ zoomBtn.onclick = () => {
     document.body.classList.add("zoom-medium");
     zoomBtn.textContent = "Zoom Médio";
   } else if (zoomLevel === 2) {
-    document.body.classList.add("zoom-large
-
+    document.body.classList.add("zoom-large");
     zoomBtn.textContent = "Zoom Grande";
   }
 };
